@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="hy">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Կենսաբանության շտեմարանի և ԳԹԿ պաշտոնական քննությունների առցանց թեստեր" />
+    <title>Կենսաբանության փորձնական թեստ</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2317865f'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-size='36' font-family='Arial' font-weight='700' fill='white'%3EԿ%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Գլխավոր էջ">
+        <span class="brand-mark" aria-hidden="true">Կ</span>
+        <span>
+          <strong>Կենսաբանություն</strong>
+          <small>Փորձնական թեստ</small>
+        </span>
+      </a>
+      <div id="headerActions" class="header-actions"></div>
+    </header>
+
+    <main id="app" class="app-shell" aria-live="polite"></main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <dialog id="finishDialog" class="confirm-dialog">
+      <form method="dialog">
+        <span class="dialog-icon" aria-hidden="true">✓</span>
+        <h2>Ավարտե՞լ թեստը</h2>
+        <p id="finishDialogText"></p>
+        <div class="dialog-actions">
+          <button class="button button-secondary" value="cancel">Շարունակել</button>
+          <button class="button button-danger" id="confirmFinish" value="finish">Ավարտել</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./question-bank.js"></script>
+    <script src="./official-exams.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
