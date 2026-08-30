@@ -12,6 +12,8 @@ Static GitHub Pages application with two clearly separated biology collections: 
 - Diagram pages from the official Tavush papers are included as local images
 - Question-bank tests contain 40 multiple-choice and 20 short-answer questions; official tests contain 70 numbered tasks and 80 separately scored responses
 - Answer positions are shuffled independently whenever a test starts
+- Persistent local result history keeps repeated attempts of the same test as separate entries
+- Starting the same test again guarantees a different option order from its most recent completed attempt
 - Three-hour countdown and refresh recovery with `localStorage`
 - Progress navigation for every scored response
 - Final score split by question type

@@ -7,6 +7,7 @@
   const BANK_STATS = window.BIOLOGY_BANK_STATS || {};
   const ATC_STATS = window.BIOLOGY_ATC_STATS || {};
   const STORAGE_KEY = "biology-practice-test-v3";
+  const HISTORY_KEY = "biology-practice-history-v1";
   const TEST_DURATION_MS = 3 * 60 * 60 * 1000;
   let QUESTIONS = [];
 
@@ -33,6 +34,7 @@
       startedAt: null,
       deadline: null,
       finishedAt: null,
+      historySaved: false,
     };
   }
 
@@ -48,6 +50,19 @@
 
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function loadHistory() {
+    try {
+      const history = JSON.parse(localStorage.getItem(HISTORY_KEY));
+      return Array.isArray(history) ? history : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveHistory(history) {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
   }
 
   function activeTest() {
@@ -72,7 +87,59 @@
     return output;
   }
 
+  function shuffleDifferently(items, previousOrder = []) {
+    const output = shuffle(items);
+    const matchesPrevious = output.length > 1
+      && previousOrder.length === output.length
+      && output.every((item, index) => item === previousOrder[index]);
+    if (matchesPrevious) [output[0], output[1]] = [output[1], output[0]];
+    return output;
+  }
+
+  function decodeOptionOrders(attempt, test) {
+    return Object.fromEntries(test.questions
+      .filter((question) => Array.isArray(question.options))
+      .map((question) => {
+        const order = attempt?.optionOrders?.[question.id];
+        const options = Array.isArray(order) && order.length === question.options.length
+          ? order.map((index) => question.options[index]).filter((option) => option !== undefined)
+          : question.options;
+        return [question.id, options.length === question.options.length ? options : question.options];
+      }));
+  }
+
+  function encodeOptionOrders() {
+    return Object.fromEntries(QUESTIONS
+      .filter((question) => Array.isArray(question.options))
+      .map((question) => [
+        question.id,
+        (state.shuffledOptions[question.id] || question.options).map((option) => question.options.indexOf(option)),
+      ]));
+  }
+
+  function encodeAnswers() {
+    return Object.fromEntries(QUESTIONS.flatMap((question) => {
+      const answer = state.answers[question.id];
+      if (answer === undefined || answer === null || answer === "" || Array.isArray(answer) && !answer.length) return [];
+      if (question.type === "choice") return [[question.id, { kind: "option", value: question.options.indexOf(answer) }]];
+      if (question.type === "multiple") return [[question.id, { kind: "multiple", value: answer.map((option) => question.options.indexOf(option)) }]];
+      return [[question.id, { kind: "text", value: String(answer) }]];
+    }));
+  }
+
+  function decodeAnswers(attempt, test) {
+    const questions = new Map(test.questions.map((question) => [String(question.id), question]));
+    return Object.fromEntries(Object.entries(attempt.answers || {}).flatMap(([id, encoded]) => {
+      const question = questions.get(String(id));
+      if (!question || !encoded || typeof encoded !== "object") return [];
+      if (encoded.kind === "option") return [[id, question.options?.[encoded.value] ?? ""]];
+      if (encoded.kind === "multiple") return [[id, (encoded.value || []).map((index) => question.options?.[index]).filter(Boolean)]];
+      return [[id, encoded.value ?? ""]];
+    }));
+  }
+
   function startNewTest(testId = state.selectedTestId || TESTS[0]?.id) {
+    const previousAttempt = loadHistory().find((attempt) => attempt.testId === testId);
     const now = Date.now();
     state = {
       ...freshState(),
@@ -82,8 +149,12 @@
       deadline: now + TEST_DURATION_MS,
     };
     syncQuestions();
+    const previousOrders = decodeOptionOrders(previousAttempt, activeTest());
     state.shuffledOptions = Object.fromEntries(
-      QUESTIONS.filter((question) => Array.isArray(question.options)).map((question) => [question.id, shuffle(question.options)])
+      QUESTIONS.filter((question) => Array.isArray(question.options)).map((question) => [
+        question.id,
+        shuffleDifferently(question.options, previousOrders[question.id]),
+      ])
     );
     saveState();
     render();
@@ -155,6 +226,68 @@
     }
   }
 
+  function formatAttemptDate(timestamp) {
+    try {
+      return new Intl.DateTimeFormat("hy-AM", { dateStyle: "medium", timeStyle: "short" }).format(new Date(timestamp));
+    } catch {
+      return new Date(timestamp).toLocaleString();
+    }
+  }
+
+  function renderHistoryMarkup() {
+    const history = loadHistory();
+    if (!history.length) {
+      return `
+        <section class="history-card history-empty">
+          <div><p class="eyebrow">Արդյունքների պատմություն</p><h2>Ավարտված փորձեր դեռ չկան</h2></div>
+          <p>Յուրաքանչյուր ավարտված թեստ այստեղ կպահվի առանձին, ներառյալ նույն տարբերակի կրկնակի փորձերը։</p>
+        </section>
+      `;
+    }
+    return `
+      <section class="history-card">
+        <div class="history-head">
+          <div><p class="eyebrow">Արդյունքների պատմություն</p><h2>Ձեր նախորդ փորձերը</h2></div>
+          <span>${history.length} ավարտված թեստ</span>
+        </div>
+        <div class="history-list">
+          ${history.map((attempt) => `
+            <article class="history-item">
+              <div class="history-score"><strong>${escapeHTML(attempt.percent)}%</strong><span>${escapeHTML(attempt.totalCorrect)} / ${escapeHTML(attempt.total)} ճիշտ</span></div>
+              <div class="history-copy">
+                <strong>${escapeHTML(attempt.testTitle)}</strong>
+                <span>${escapeHTML(formatAttemptDate(attempt.finishedAt))} · ${escapeHTML(formatTime(attempt.finishedAt - attempt.startedAt))}</span>
+              </div>
+              <button class="button button-secondary history-open" data-attempt-id="${escapeHTML(attempt.id)}">Դիտել արդյունքը</button>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function openHistoryAttempt(attemptId) {
+    const attempt = loadHistory().find((item) => item.id === attemptId);
+    const test = TESTS.find((item) => item.id === attempt?.testId);
+    if (!attempt || !test) {
+      showToast("Այս փորձի թեստն այլևս հասանելի չէ։");
+      return;
+    }
+    state = {
+      ...freshState(),
+      mode: "results",
+      selectedGroup: test.group,
+      selectedTestId: test.id,
+      answers: decodeAnswers(attempt, test),
+      shuffledOptions: decodeOptionOrders(attempt, test),
+      startedAt: attempt.startedAt,
+      finishedAt: attempt.finishedAt,
+      historySaved: true,
+    };
+    saveState();
+    render();
+  }
+
   function renderStart() {
     const selectedTest = activeTest();
     const selectedGroup = selectedTest?.group || state.selectedGroup || "bank";
@@ -179,7 +312,8 @@
         ];
     app.innerHTML = `
       <section class="start-layout">
-        <div class="start-card">
+        <div class="start-stack">
+          <div class="start-card">
           <div class="start-hero">
             <p class="eyebrow">Կենսաբանության թեստեր</p>
             <h1>Ընտրեք աղբյուրը և թեստային տարբերակը</h1>
@@ -209,6 +343,8 @@
               ? "Այս խմբում միայն ԳԹԿ-ի հրապարակած քննաթերթերն ու վերջնական պատասխաններն են։ Պահպանված են համապատասխանեցման, հերթականության, բազմընտրության և ճիշտ/սխալ ձևաչափերը։"
               : "Այս խմբի բոլոր հարցերը վերցված են կենսաբանության շտեմարանի 1–4 մասերից։ Ընտրովի պատասխանների տեղերը խառնվում են թեստը սկսելիս։"}</p>
           </div>
+          </div>
+          ${renderHistoryMarkup()}
         </div>
       </section>
     `;
@@ -235,7 +371,10 @@
         document.querySelector("#selectedVariantLabel").textContent = activeTest().title;
       });
     });
-    document.querySelector("#startTest").addEventListener("click", () => startNewTest(selectedId));
+    document.querySelector("#startTest").addEventListener("click", () => startNewTest(state.selectedTestId || selectedId));
+    document.querySelectorAll(".history-open").forEach((button) => {
+      button.addEventListener("click", () => openHistoryAttempt(button.dataset.attemptId));
+    });
   }
 
   function renderSource(question) {
@@ -444,10 +583,38 @@
 
   confirmFinish.addEventListener("click", () => finishTest(false));
 
+  function saveFinishedAttempt() {
+    if (state.historySaved) return;
+    const test = activeTest();
+    const score = scoreSummary();
+    const attempt = {
+      id: `${state.finishedAt}-${Math.random().toString(36).slice(2, 10)}`,
+      testId: test.id,
+      testTitle: test.title,
+      group: test.group,
+      startedAt: state.startedAt,
+      finishedAt: state.finishedAt,
+      total: QUESTIONS.length,
+      totalCorrect: score.totalCorrect,
+      percent: score.percent,
+      choiceCorrect: score.choiceCorrect,
+      choiceTotal: score.choiceTotal,
+      shortCorrect: score.shortCorrect,
+      shortTotal: score.shortTotal,
+      answers: encodeAnswers(),
+      optionOrders: encodeOptionOrders(),
+    };
+    const history = loadHistory();
+    history.unshift(attempt);
+    saveHistory(history.slice(0, 200));
+    state.historySaved = true;
+  }
+
   function finishTest(fromTimer) {
     saveVisibleShortAnswer();
-    state.mode = "results";
     state.finishedAt = Date.now();
+    saveFinishedAttempt();
+    state.mode = "results";
     saveState();
     finishDialog.close();
     render();
