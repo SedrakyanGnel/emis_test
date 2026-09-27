@@ -367,7 +367,7 @@
                 <strong>Կամավոր ատեստավորում</strong><span>2022–2024 · ուսուցիչներ</span>
               </button>
               <button class="source-tab ${selectedGroup === "mandatory" ? "selected" : ""}" data-group="mandatory" role="tab" aria-selected="${selectedGroup === "mandatory"}">
-                <strong>Հերթական ատեստավորում</strong><span>առանձին գործընթաց</span>
+                <strong>Պարտադիր / հերթական</strong><span>ատեստավորում · առանձին գործընթաց</span>
               </button>
             </div>
             <div class="test-facts">
