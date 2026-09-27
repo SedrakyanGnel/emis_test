@@ -303,6 +303,13 @@ button {
   max-height: 320px;
 }
 
+.empty-group-message {
+  padding: 24px 18px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+
 .variant-button.official-variant {
   aspect-ratio: auto;
   min-height: 52px;

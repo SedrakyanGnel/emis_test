@@ -2,10 +2,12 @@
   "use strict";
 
   const BANK_TESTS = (window.BIOLOGY_BANK_TESTS || []).map((test) => ({ ...test, group: "bank" }));
-  const ATC_TESTS = window.BIOLOGY_ATC_TESTS || [];
-  const TESTS = [...BANK_TESTS, ...ATC_TESTS];
+  const UNIFIED_TESTS = (window.BIOLOGY_ATC_TESTS || []).map((test) => ({ ...test, group: "unified" }));
+  const VOLUNTARY_TESTS = window.BIOLOGY_VOLUNTARY_TESTS || [];
+  const TESTS = [...BANK_TESTS, ...UNIFIED_TESTS, ...VOLUNTARY_TESTS];
   const BANK_STATS = window.BIOLOGY_BANK_STATS || {};
-  const ATC_STATS = window.BIOLOGY_ATC_STATS || {};
+  const UNIFIED_STATS = window.BIOLOGY_ATC_STATS || {};
+  const VOLUNTARY_STATS = window.BIOLOGY_VOLUNTARY_STATS || {};
   const STORAGE_KEY = "biology-practice-test-v3";
   const HISTORY_KEY = "biology-practice-history-v1";
   const TEST_DURATION_MS = 3 * 60 * 60 * 1000;
@@ -68,7 +70,7 @@
   function activeTest() {
     return TESTS.find((test) => test.id === state.selectedTestId)
       || TESTS.find((test) => test.group === state.selectedGroup)
-      || TESTS[0];
+      || null;
   }
 
   function syncQuestions() {
@@ -139,6 +141,10 @@
   }
 
   function startNewTest(testId = state.selectedTestId || TESTS[0]?.id) {
+    if (!TESTS.some((test) => test.id === testId)) {
+      showToast("Այս բաժնում սկսելու թեստ չկա։");
+      return;
+    }
     const previousAttempt = loadHistory().find((attempt) => attempt.testId === testId);
     const now = Date.now();
     state = {
@@ -290,26 +296,56 @@
 
   function renderStart() {
     const selectedTest = activeTest();
-    const selectedGroup = selectedTest?.group || state.selectedGroup || "bank";
+    const selectedGroup = state.selectedGroup || selectedTest?.group || "bank";
     const groupTests = TESTS.filter((test) => test.group === selectedGroup);
     const selectedId = groupTests.some((test) => test.id === selectedTest?.id) ? selectedTest.id : groupTests[0]?.id;
-    const isOfficial = selectedGroup === "atc";
+    const isPublishedExam = selectedGroup === "unified" || selectedGroup === "voluntary";
     const testButtons = groupTests.map((test, index) => `
-      <button class="variant-button ${isOfficial ? "official-variant" : ""} ${test.id === selectedId ? "selected" : ""}" data-test-id="${test.id}" aria-pressed="${test.id === selectedId}">
-        <span>${isOfficial ? escapeHTML(test.shortTitle || test.title) : index + 1}</span>
+      <button class="variant-button ${isPublishedExam ? "official-variant" : ""} ${test.id === selectedId ? "selected" : ""}" data-test-id="${test.id}" aria-pressed="${test.id === selectedId}">
+        <span>${isPublishedExam ? escapeHTML(test.shortTitle || test.title) : index + 1}</span>
       </button>
     `).join("");
-    const facts = isOfficial
-      ? [
-          [ATC_STATS.tests || ATC_TESTS.length, "պաշտոնական թեստ"],
-          [ATC_STATS.years?.join(", ") || "2024–2025", "քննական տարիներ"],
-          ["70 / 80", "առաջադրանք / գնահատվող պատասխան"],
-        ]
-      : [
+    const groupDetails = {
+      bank: {
+        facts: [
           [BANK_STATS.tests || BANK_TESTS.length, "շտեմարանի տարբերակ"],
           [BANK_STATS.choiceQuestions || "—", "շտեմարանի ընտրովի հարց"],
           [BANK_STATS.shortQuestions || "—", "կարճ պատասխանով խնդիր"],
-        ];
+        ],
+        pickerMeta: "60 հարց · 3 ժամ",
+        note: "Այս խմբի բոլոր հարցերը վերցված են կենսաբանության շտեմարանի 1–4 մասերից։ Ընտրովի պատասխանների տեղերը խառնվում են թեստը սկսելիս։",
+      },
+      unified: {
+        facts: [
+          [UNIFIED_STATS.tests || UNIFIED_TESTS.length, "միասնական քննության թեստ"],
+          [UNIFIED_STATS.years?.join(", ") || "2024–2025", "քննական տարիներ"],
+          ["70 / 80", "առաջադրանք / գնահատվող պատասխան"],
+        ],
+        pickerMeta: "70 առաջադրանք · 80 գնահատվող պատասխան",
+        note: "Սրանք ԳԹԿ-ի հրապարակած միասնական ընդունելության քննություններն են։ Դրանք ուսուցիչների ատեստավորման կամ ավարտական քննությունների հետ չեն խառնվում։",
+      },
+      voluntary: {
+        facts: [
+          [VOLUNTARY_STATS.tests || VOLUNTARY_TESTS.length, "կամավոր ատեստավորման թեստ"],
+          [VOLUNTARY_STATS.years?.join(", ") || "2022–2024", "հրապարակված տարիներ"],
+          ["60", "առաջադրանք յուրաքանչյուր թեստում"],
+        ],
+        pickerMeta: "60 առաջադրանք · պաշտոնական բանալի",
+        note: "Միայն ուսուցիչների կամավոր ատեստավորման՝ ԳԹԿ-ի հրապարակած կենսաբանության քննաթերթերն ու վերջնական պատասխաններն են։ 2025-ի քննությունը եղել է էլեկտրոնային և անհատականացված, իսկ հրապարակված հաստատուն կենսաբանության տարբերակ չի գտնվել։",
+      },
+      mandatory: {
+        facts: [
+          ["Առանձին", "հերթական ատեստավորման բաժին"],
+          ["0", "հաստատված ստանդարտացված թեստ"],
+          ["Չի խառնվում", "կամավոր կամ միասնական քննություններին"],
+        ],
+        pickerMeta: "Տեղեկատվական բաժին",
+        note: "Հերթական (պարտադիր) ատեստավորման պաշտոնական գործընթացում գտնված կենսաբանության նյութերը վերապատրաստման հետազոտական աշխատանքներ են, ոչ միասնական թեստեր ու պատասխանների բանալիներ։ Այդ պատճառով այստեղ պատահական նյութերից թեստ չի ստեղծվել։",
+      },
+    };
+    const details = groupDetails[selectedGroup] || groupDetails.bank;
+    const facts = details.facts;
+    const selectedTitle = groupTests.find((test) => test.id === selectedId)?.title || "Այս բաժնում հրապարակված թեստ չկա";
     app.innerHTML = `
       <section class="start-layout">
         <div class="start-stack">
@@ -317,15 +353,21 @@
           <div class="start-hero">
             <p class="eyebrow">Կենսաբանության թեստեր</p>
             <h1>Ընտրեք աղբյուրը և թեստային տարբերակը</h1>
-            <p>Շտեմարանի կազմված տարբերակները և ԳԹԿ-ի իրական քննությունները պահվում են առանձին խմբերով։</p>
+            <p>Շտեմարանը, միասնական քննությունները և ուսուցիչների ատեստավորման տեսակները պահվում են առանձին խմբերով։</p>
           </div>
           <div class="start-body">
             <div class="source-tabs" role="tablist" aria-label="Թեստերի աղբյուր">
               <button class="source-tab ${selectedGroup === "bank" ? "selected" : ""}" data-group="bank" role="tab" aria-selected="${selectedGroup === "bank"}">
                 <strong>Շտեմարան</strong><span>86 կազմված տարբերակ</span>
               </button>
-              <button class="source-tab ${selectedGroup === "atc" ? "selected" : ""}" data-group="atc" role="tab" aria-selected="${selectedGroup === "atc"}">
-                <strong>ԳԹԿ պաշտոնական</strong><span>2024–2025 քննություններ</span>
+              <button class="source-tab ${selectedGroup === "unified" ? "selected" : ""}" data-group="unified" role="tab" aria-selected="${selectedGroup === "unified"}">
+                <strong>Միասնական քննություններ</strong><span>2024–2025 · ԳԹԿ</span>
+              </button>
+              <button class="source-tab ${selectedGroup === "voluntary" ? "selected" : ""}" data-group="voluntary" role="tab" aria-selected="${selectedGroup === "voluntary"}">
+                <strong>Կամավոր ատեստավորում</strong><span>2022–2024 · ուսուցիչներ</span>
+              </button>
+              <button class="source-tab ${selectedGroup === "mandatory" ? "selected" : ""}" data-group="mandatory" role="tab" aria-selected="${selectedGroup === "mandatory"}">
+                <strong>Հերթական ատեստավորում</strong><span>առանձին գործընթաց</span>
               </button>
             </div>
             <div class="test-facts">
@@ -333,15 +375,15 @@
             </div>
             <div class="variant-picker">
               <div class="variant-picker-head">
-                <div><strong>Ընտրեք տարբերակը</strong><span id="selectedVariantLabel">${escapeHTML(groupTests.find((test) => test.id === selectedId)?.title || "")}</span></div>
-                <span>${isOfficial ? "70 առաջադրանք · 80 գնահատվող պատասխան" : "60 հարց · 3 ժամ"}</span>
+                <div><strong>${groupTests.length ? "Ընտրեք տարբերակը" : "Պաշտոնական կարգավիճակ"}</strong><span id="selectedVariantLabel">${escapeHTML(selectedTitle)}</span></div>
+                <span>${escapeHTML(details.pickerMeta)}</span>
               </div>
-              <div class="variant-grid ${isOfficial ? "official-grid" : ""}" role="group" aria-label="Թեստային տարբերակներ">${testButtons}</div>
+              ${groupTests.length
+                ? `<div class="variant-grid ${isPublishedExam ? "official-grid" : ""}" role="group" aria-label="Թեստային տարբերակներ">${testButtons}</div>`
+                : `<div class="empty-group-message">Չկան ստուգված քննաթերթ և պատասխանների պաշտոնական բանալի, որոնցից հնարավոր լինի վստահելի առցանց թեստ կառուցել։</div>`}
             </div>
-            <button class="button button-primary button-large" id="startTest">Սկսել ընտրված թեստը</button>
-            <p class="bank-note">${isOfficial
-              ? "Այս խմբում միայն ԳԹԿ-ի հրապարակած քննաթերթերն ու վերջնական պատասխաններն են։ Պահպանված են համապատասխանեցման, հերթականության, բազմընտրության և ճիշտ/սխալ ձևաչափերը։"
-              : "Այս խմբի բոլոր հարցերը վերցված են կենսաբանության շտեմարանի 1–4 մասերից։ Ընտրովի պատասխանների տեղերը խառնվում են թեստը սկսելիս։"}</p>
+            ${groupTests.length ? `<button class="button button-primary button-large" id="startTest">Սկսել ընտրված թեստը</button>` : ""}
+            <p class="bank-note">${escapeHTML(details.note)}</p>
           </div>
           </div>
           ${renderHistoryMarkup()}
@@ -371,7 +413,7 @@
         document.querySelector("#selectedVariantLabel").textContent = activeTest().title;
       });
     });
-    document.querySelector("#startTest").addEventListener("click", () => startNewTest(state.selectedTestId || selectedId));
+    document.querySelector("#startTest")?.addEventListener("click", () => startNewTest(state.selectedTestId || selectedId));
     document.querySelectorAll(".history-open").forEach((button) => {
       button.addEventListener("click", () => openHistoryAttempt(button.dataset.attemptId));
     });
@@ -380,7 +422,10 @@
   function renderSource(question) {
     if (!question.source) return "";
     if (question.source.kind === "atc") {
-      return `<p class="source-label official-source">ԳԹԿ · ${escapeHTML(question.source.year)} · ${escapeHTML(question.source.phase)} · Թեստ ${escapeHTML(question.source.variant)} · Առաջադրանք ${escapeHTML(question.source.question)} · <a href="${escapeHTML(question.source.sourceUrl)}" target="_blank" rel="noopener">քննաթերթ</a> · <a href="${escapeHTML(question.source.answerKeyUrl)}" target="_blank" rel="noopener">պատասխաններ</a></p>`;
+      return `<p class="source-label official-source">Միասնական քննություն · ԳԹԿ · ${escapeHTML(question.source.year)} · ${escapeHTML(question.source.phase)} · Թեստ ${escapeHTML(question.source.variant)} · Առաջադրանք ${escapeHTML(question.source.question)} · <a href="${escapeHTML(question.source.sourceUrl)}" target="_blank" rel="noopener">քննաթերթ</a> · <a href="${escapeHTML(question.source.answerKeyUrl)}" target="_blank" rel="noopener">պատասխաններ</a></p>`;
+    }
+    if (question.source.kind === "voluntary") {
+      return `<p class="source-label official-source">Կամավոր ատեստավորում · ԳԹԿ · ${escapeHTML(question.source.year)} · Թեստ ${escapeHTML(question.source.variant)} · Առաջադրանք ${escapeHTML(question.source.question)} · <a href="${escapeHTML(question.source.sourceUrl)}" target="_blank" rel="noopener">քննաթերթ</a> · <a href="${escapeHTML(question.source.answerKeyUrl)}" target="_blank" rel="noopener">պատասխաններ</a></p>`;
     }
     return `<p class="source-label">Շտեմարան · Մաս ${question.source.part} · ${escapeHTML(question.source.topicName)} · Առաջադրանք ${escapeHTML(question.source.question)}</p>`;
   }
@@ -779,12 +824,16 @@
       app.innerHTML = `<p>Թեստերի տվյալները չեն բեռնվել։</p>`;
       return;
     }
-    if (!QUESTIONS.length) return;
     renderHeader();
-    if (state.mode === "test") renderTest();
+    if (state.mode === "start") renderStart();
+    else if (!QUESTIONS.length) {
+      state = { ...freshState(), selectedGroup: state.selectedGroup || "bank" };
+      saveState();
+      renderStart();
+    }
+    else if (state.mode === "test") renderTest();
     else if (state.mode === "results") renderResults();
     else if (state.mode === "review") renderReview();
-    else renderStart();
     beginClock();
   }
 
