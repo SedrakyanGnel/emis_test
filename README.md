@@ -15,7 +15,9 @@ Static GitHub Pages application with four clearly separated biology sections: qu
 - Diagram pages from the official Tavush papers are included as local images
 - Question-bank tests contain 40 multiple-choice and 20 short-answer questions; unified tests contain 70 numbered tasks and 80 separately scored responses; voluntary-attestation tests contain 60 tasks
 - Answer positions are shuffled independently whenever a test starts
-- Persistent local result history keeps repeated attempts of the same test as separate entries
+- Persistent local result history keeps every completed attempt, including repeated attempts
+- Sends a JSON backup of the full result history to a selected Telegram private chat
+- Uses the configured Telegram bot to send result backups
 - Starting the same test again guarantees a different option order from its most recent completed attempt
 - Three-hour countdown and refresh recovery with `localStorage`
 - Progress navigation for every scored response
@@ -23,6 +25,12 @@ Static GitHub Pages application with four clearly separated biology sections: qu
 - Detailed review showing the selected/entered answer and the official correct answer
 - Responsive desktop and mobile layout
 - No login, server, database, build tool, or external runtime dependency
+
+## Result history and backups
+
+Result history stays in the browser's `localStorage` under the stable key `biology-practice-history-v1`. Publishing updated static files to GitHub Pages on the same site origin does not clear that browser storage. The history has no app-imposed 200-attempt limit; browser storage limits and manually cleared site data still apply.
+
+Use **Ուղարկել Telegram-ով** on the start page to send a JSON backup to a private chat. Start a conversation with your bot first. The app can find recent private chats from the bot's updates, or you can enter the Chat ID yourself. The configured bot token is part of the static frontend code; rotate it through BotFather when you no longer want this deployment to use it.
 
 ## Run locally
 

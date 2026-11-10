@@ -36,6 +36,31 @@
       </form>
     </dialog>
 
+    <dialog id="telegramDialog" class="confirm-dialog telegram-dialog">
+      <form id="telegramForm">
+        <span class="dialog-icon" aria-hidden="true">↗</span>
+        <h2>Պահուստավորել Telegram-ում</h2>
+        <p>Պատմությունը կուղարկվի կարգավորված bot-ին՝ JSON ֆայլով։</p>
+        <div class="telegram-chat-tools">
+          <button class="button button-secondary" id="findTelegramChats" type="button">Գտնել իմ զրույցը</button>
+          <span>Սկզբում Telegram-ում սեղմեք Start ձեր bot-ի անձնական զրույցում։</span>
+        </div>
+        <div id="telegramChatChoiceWrap" class="telegram-field" hidden>
+          <label for="telegramChatChoices">Ընտրեք անձնական զրույցը</label>
+          <select id="telegramChatChoices"></select>
+        </div>
+        <label class="telegram-field">
+          <span>Chat ID <small>(ավտոմատ կլրացվի կամ կարող եք մուտքագրել)</small></span>
+          <input id="telegramChatId" type="text" inputmode="numeric" autocomplete="off" required />
+        </label>
+        <p id="telegramStatus" class="telegram-status" role="status">Token-ը չի պահվում այս հավելվածում։ Նախ Telegram-ում սեղմեք Start ձեր bot-ի զրույցում, ապա գտեք զրույցը։</p>
+        <div class="dialog-actions">
+          <button class="button button-secondary" id="cancelTelegram" type="button">Չեղարկել</button>
+          <button class="button button-primary" id="sendTelegramHistory" type="submit">Ուղարկել JSON-ը</button>
+        </div>
+      </form>
+    </dialog>
+
     <script src="./question-bank.js"></script>
     <script src="./official-exams.js"></script>
     <script src="./voluntary-attestation.js"></script>

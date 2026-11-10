@@ -10,6 +10,7 @@
   const VOLUNTARY_STATS = window.BIOLOGY_VOLUNTARY_STATS || {};
   const STORAGE_KEY = "biology-practice-test-v3";
   const HISTORY_KEY = "biology-practice-history-v1";
+  const TELEGRAM_BOT_TOKEN = "6485075892:AAG1DkibXjLXJBdD-BEueF16joOJjAvN6XA";
   const TEST_DURATION_MS = 3 * 60 * 60 * 1000;
   let QUESTIONS = [];
 
@@ -64,7 +65,13 @@
   }
 
   function saveHistory(history) {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      return true;
+    } catch {
+      showToast("Պատմության նոր փորձը չի պահպանվել․ զննարկչի հիշողությունը կարող է լցված լինել։ Ազատեք տեղը և ուղարկեք առկա պատմությունը Telegram-ով։");
+      return false;
+    }
   }
 
   function activeTest() {
@@ -240,6 +247,151 @@
     }
   }
 
+  function historyBackup() {
+    return {
+      format: "biology-practice-history",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      attempts: loadHistory(),
+    };
+  }
+
+  function showTelegramStatus(message, isError = false) {
+    const status = document.querySelector("#telegramStatus");
+    status.textContent = message;
+    status.classList.toggle("error", isError);
+  }
+
+  async function findTelegramChats() {
+    const findButton = document.querySelector("#findTelegramChats");
+    const token = TELEGRAM_BOT_TOKEN;
+    if (!/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
+      showTelegramStatus("Կարգավորված Telegram bot token-ի ձևաչափը սխալ է։", true);
+      return;
+    }
+
+    findButton.disabled = true;
+    findButton.textContent = "Որոնվում է…";
+    showTelegramStatus("Ստուգվում են bot-ին հասած անձնական զրույցները։");
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/getUpdates?limit=100`);
+      const result = await response.json();
+      if (!result.ok) throw new Error(result.description || "Telegram-ը չկարողացավ գտնել զրույցները։");
+
+      const chats = new Map();
+      for (const update of result.result || []) {
+        const message = update.message || update.edited_message;
+        const chat = message?.chat;
+        if (chat?.type !== "private") continue;
+        const name = [chat.first_name, chat.last_name].filter(Boolean).join(" ") || chat.username || "Telegram զրույց";
+        chats.set(String(chat.id), { id: String(chat.id), name, username: chat.username || "" });
+      }
+
+      const choices = [...chats.values()];
+      if (!choices.length) {
+        showTelegramStatus("Զրույց չգտնվեց։ Telegram-ում բացեք ձեր bot-ը և սեղմեք Start, ապա կրկին փորձեք։ Կարող եք նաև ձեռքով լրացնել Chat ID-ն։", true);
+        return;
+      }
+
+      const selector = document.querySelector("#telegramChatChoices");
+      selector.replaceChildren();
+      if (choices.length > 1) {
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "Ընտրեք ձեր անձնական զրույցը";
+        selector.append(placeholder);
+      }
+      for (const chat of choices) {
+        const option = document.createElement("option");
+        option.value = chat.id;
+        option.textContent = `${chat.name}${chat.username ? ` (@${chat.username})` : ""} · ${chat.id}`;
+        selector.append(option);
+      }
+      document.querySelector("#telegramChatChoiceWrap").hidden = choices.length === 1;
+      document.querySelector("#telegramChatId").value = choices.length === 1 ? choices[0].id : "";
+      if (choices.length > 1) {
+        selector.value = "";
+        showTelegramStatus("Գտնվել են մի քանի անձնական զրույցներ․ ընտրեք ձերը։");
+      } else {
+        showTelegramStatus("Ձեր անձնական զրույցը գտնվեց։ Կարող եք ուղարկել պահուստային ֆայլը։");
+      }
+    } catch (error) {
+      showTelegramStatus(`Չհաջողվեց գտնել զրույցը։ ${error.message} Կարող եք ձեռքով լրացնել Chat ID-ն։`, true);
+    } finally {
+      findButton.disabled = false;
+      findButton.textContent = "Գտնել իմ զրույցը";
+    }
+  }
+
+  async function sendHistoryToTelegram(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const chatIdInput = document.querySelector("#telegramChatId");
+    const sendButton = document.querySelector("#sendTelegramHistory");
+    const token = TELEGRAM_BOT_TOKEN;
+    const chatId = chatIdInput.value.trim();
+    const backup = historyBackup();
+    if (!backup.attempts.length) {
+      showTelegramStatus("Պահպանված փորձեր չկան։", true);
+      return;
+    }
+    if (!chatId) {
+      showTelegramStatus("Լրացրեք կամ գտեք ձեր Chat ID-ն։", true);
+      return;
+    }
+    if (!/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
+      showTelegramStatus("Bot token-ի ձևաչափը ճիշտ չէ։ Ստուգեք այն BotFather-ում։", true);
+      return;
+    }
+
+    sendButton.disabled = true;
+    sendButton.textContent = "Ուղարկվում է…";
+    showTelegramStatus("JSON պահուստային ֆայլն ուղարկվում է Telegram։");
+    try {
+      const file = new File(
+        [JSON.stringify(backup, null, 2)],
+        `emis-test-history-${new Date().toISOString().slice(0, 10)}.json`,
+        { type: "application/json" },
+      );
+      const body = new FormData();
+      body.append("chat_id", chatId);
+      body.append("document", file);
+      const response = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+        method: "POST",
+        body,
+      });
+      const result = await response.json();
+      if (!result.ok) throw new Error(result.description || "Telegram-ը չընդունեց ֆայլը։");
+
+      document.querySelector("#telegramDialog").close();
+      form.reset();
+      document.querySelector("#telegramChatChoiceWrap").hidden = true;
+      showToast("JSON պահուստային ֆայլն ուղարկվեց Telegram։");
+    } catch (error) {
+      showTelegramStatus(`Չհաջողվեց ուղարկել ֆայլը։ ${error.message}`, true);
+    } finally {
+      sendButton.disabled = false;
+      sendButton.textContent = "Ուղարկել JSON-ը";
+    }
+  }
+
+  function resetTelegramDialog() {
+    document.querySelector("#telegramForm").reset();
+    document.querySelector("#telegramChatChoiceWrap").hidden = true;
+    document.querySelector("#telegramChatChoices").replaceChildren();
+    showTelegramStatus("Նախ Telegram-ում սեղմեք Start ձեր bot-ի զրույցում, ապա գտեք զրույցը։");
+  }
+
+  document.querySelector("#telegramForm").addEventListener("submit", sendHistoryToTelegram);
+  document.querySelector("#findTelegramChats").addEventListener("click", findTelegramChats);
+  document.querySelector("#telegramChatChoices").addEventListener("change", (event) => {
+    document.querySelector("#telegramChatId").value = event.currentTarget.value;
+  });
+  document.querySelector("#cancelTelegram").addEventListener("click", () => {
+    document.querySelector("#telegramDialog").close();
+  });
+  document.querySelector("#telegramDialog").addEventListener("close", resetTelegramDialog);
+
   function renderHistoryMarkup() {
     const history = loadHistory();
     if (!history.length) {
@@ -254,7 +406,10 @@
       <section class="history-card">
         <div class="history-head">
           <div><p class="eyebrow">Արդյունքների պատմություն</p><h2>Ձեր նախորդ փորձերը</h2></div>
-          <span>${history.length} ավարտված թեստ</span>
+          <div class="history-head-actions">
+            <span>${history.length} ավարտված թեստ</span>
+            <button class="button button-secondary" id="sendHistoryTelegram">Ուղարկել Telegram-ով</button>
+          </div>
         </div>
         <div class="history-list">
           ${history.map((attempt) => `
@@ -416,6 +571,10 @@
     document.querySelector("#startTest")?.addEventListener("click", () => startNewTest(state.selectedTestId || selectedId));
     document.querySelectorAll(".history-open").forEach((button) => {
       button.addEventListener("click", () => openHistoryAttempt(button.dataset.attemptId));
+    });
+    document.querySelector("#sendHistoryTelegram")?.addEventListener("click", () => {
+      resetTelegramDialog();
+      document.querySelector("#telegramDialog").showModal();
     });
   }
 
@@ -651,8 +810,7 @@
     };
     const history = loadHistory();
     history.unshift(attempt);
-    saveHistory(history.slice(0, 200));
-    state.historySaved = true;
+    state.historySaved = saveHistory(history);
   }
 
   function finishTest(fromTimer) {

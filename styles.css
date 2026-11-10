@@ -360,6 +360,19 @@ button {
   font-size: 13px;
 }
 
+.history-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+
+.history-head-actions > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .history-empty {
   display: flex;
   align-items: center;
@@ -865,6 +878,80 @@ button {
   text-align: center;
 }
 
+.telegram-dialog {
+  width: min(540px, calc(100vw - 32px));
+}
+
+.telegram-dialog form {
+  text-align: left;
+}
+
+.telegram-dialog .dialog-icon {
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.telegram-dialog h2,
+.telegram-dialog > form > p {
+  text-align: center;
+}
+
+.telegram-field {
+  display: block;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.telegram-field > span,
+.telegram-field > label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.telegram-field small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.telegram-field input,
+.telegram-field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: white;
+  color: var(--ink);
+}
+
+.telegram-chat-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.telegram-chat-tools > span,
+.telegram-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.telegram-chat-tools > span {
+  line-height: 1.35;
+}
+
+.telegram-status {
+  min-height: 20px;
+  margin: 14px 0 0;
+  text-align: left;
+}
+
+.telegram-status.error {
+  color: var(--red);
+}
+
 .dialog-icon {
   display: grid;
   width: 52px;
@@ -1112,6 +1199,12 @@ button {
     flex-direction: column;
   }
 
+  .history-head-actions {
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-direction: column;
+  }
+
   .history-empty > p {
     text-align: left;
   }
@@ -1123,6 +1216,15 @@ button {
   .history-item .history-open {
     grid-column: 1 / -1;
     width: 100%;
+  }
+
+  .telegram-chat-tools {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .telegram-dialog .dialog-actions {
+    grid-template-columns: 1fr;
   }
 
   .variant-picker-head {
