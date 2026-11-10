@@ -409,6 +409,7 @@
           <div class="history-head-actions">
             <span>${history.length} ավարտված թեստ</span>
             <button class="button button-secondary" id="sendHistoryTelegram">Ուղարկել Telegram-ով</button>
+            <a class="button button-secondary" href="./telegram-backup.html?v=20261110-1">Բացել առանձին էջը</a>
           </div>
         </div>
         <div class="history-list">

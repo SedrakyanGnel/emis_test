@@ -32,6 +32,8 @@ Result history stays in the browser's `localStorage` under the stable key `biolo
 
 Use **Ուղարկել Telegram-ով** on the start page to send a JSON backup to a private chat. Start a conversation with your bot first. The app can find recent private chats from the bot's updates, or you can enter the Chat ID yourself. The configured bot token is part of the static frontend code; rotate it through BotFather when you no longer want this deployment to use it.
 
+For a direct mobile shortcut, open `telegram-backup.html?v=20261110-1`. This standalone page reads history from the same browser origin and sends it to the configured Telegram chat without loading the main app scripts. The version query gives the page a fresh URL; GitHub Pages does not let this static project set HTTP cache headers.
+
 ## Run locally
 
 From this directory:
